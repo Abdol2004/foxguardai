@@ -119,15 +119,15 @@ async def conversation_endpoint(req: ConversationRequest):
         if is_toxic:
             return {"reply": None, "action": "warn", "reason": "Toxic content"}
 
-    # Only fetch project knowledge for questions, and ONLY if results are actually relevant.
-    # Pinecone always returns k results even for unrelated queries — we filter by score.
-    # Threshold 0.55: below this the query has nothing to do with the knowledge base.
+    # Only load project knowledge if the question is HIGHLY relevant to the knowledge base.
+    # Threshold 0.72 = must be clearly about the project.
+    # General questions (movies, weekend, anime, etc.) score < 0.4 against project docs.
     project_knowledge = ""
     if msg_type == "question":
         try:
             vs = get_vectorstore(req.project_id)
             results = vs.similarity_search_with_relevance_scores(message, k=4)
-            relevant = [doc.page_content for doc, score in results if score >= 0.55]
+            relevant = [doc.page_content for doc, score in results if score >= 0.72]
             project_knowledge = "\n\n".join(relevant)
         except Exception:
             pass
