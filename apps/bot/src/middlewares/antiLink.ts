@@ -1,6 +1,6 @@
 import type { Context, NextFunction } from "grammy";
-import { GroupSettings, ModerationEvent } from "../db/models.js";
-import { incrementAnalytics, getUserProfile, applyMute } from "../lib/helpers.js";
+import { GroupSettings, ModerationEvent, UserProfile } from "../db/models.js";
+import { incrementAnalytics, applyMute } from "../lib/helpers.js";
 
 const URL_REGEX = /(?:https?:\/\/|t\.me\/|@\w+\.(?:com|io|net|org|xyz|gg))/i;
 
@@ -23,13 +23,16 @@ export async function antiLinkMiddleware(ctx: Context, next: NextFunction) {
 
   await ctx.deleteMessage().catch(() => null);
 
-  const profile = await getUserProfile(chatId, userId, ctx.from?.username ?? "");
-  profile.warnings += 1;
-  await profile.save();
+  const profile = await UserProfile.findOneAndUpdate(
+    { chatId, userId },
+    { $inc: { warnings: 1 }, $setOnInsert: { username: ctx.from?.username ?? "" } },
+    { upsert: true, new: true }
+  );
+
+  const warnCount = Math.min(profile.warnings, 3);
 
   await ModerationEvent.create({
-    chatId,
-    userId,
+    chatId, userId,
     username: ctx.from?.username ?? "",
     action: "delete_link",
     reason: "Link detected",
@@ -38,13 +41,16 @@ export async function antiLinkMiddleware(ctx: Context, next: NextFunction) {
 
   await incrementAnalytics(chatId, "linksDeleted");
 
-  if (settings.moderation.muteOnSpam && profile.warnings >= 3) {
+  if (settings.moderation.muteOnSpam && warnCount >= 3) {
     await applyMute(ctx, chatId, userId, settings.moderation.muteDurationSecs ?? 300);
+    await UserProfile.findOneAndUpdate({ chatId, userId }, { $set: { warnings: 0 } });
+    await ctx
+      .reply(`@${ctx.from?.username ?? "User"} has been muted for repeated link posting.`)
+      .then((m) => setTimeout(() => ctx.api.deleteMessage(ctx.chat!.id, m.message_id), 8000))
+      .catch(() => null);
   } else {
     await ctx
-      .reply(`⚠️ @${ctx.from?.username ?? "User"}, links are not allowed here.`, {
-        reply_parameters: undefined,
-      })
+      .reply(`@${ctx.from?.username ?? "User"}, links are not allowed here. Warning ${warnCount}/3.`)
       .then((m) => setTimeout(() => ctx.api.deleteMessage(ctx.chat!.id, m.message_id), 8000))
       .catch(() => null);
   }

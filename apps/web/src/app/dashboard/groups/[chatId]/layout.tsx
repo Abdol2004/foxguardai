@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { ArrowLeft, Shield, BookOpen, BarChart2, MessageSquare, Ticket, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, Shield, BookOpen, BarChart2, MessageSquare, Ticket, LayoutDashboard, Bot } from "lucide-react";
 
 const tabs = [
   { href: "",           label: "Overview",   icon: LayoutDashboard },
   { href: "/moderation",label: "Moderation", icon: Shield },
+  { href: "/ai",        label: "AI",         icon: Bot },
   { href: "/knowledge", label: "Knowledge",  icon: BookOpen },
   { href: "/analytics", label: "Analytics",  icon: BarChart2 },
   { href: "/welcome",   label: "Welcome",    icon: MessageSquare },
@@ -64,7 +65,7 @@ export default function GroupLayout({ children }: { children: React.ReactNode })
 
       {/* Mobile bottom tabs */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#14141f] border-t border-white/5 flex justify-around px-1 pt-2 pb-3">
-        {tabs.slice(0, 5).map(({ href, label, icon: Icon }) => (
+        {tabs.slice(0, 6).filter((_, i) => i !== 3).slice(0, 5).map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={`${base}${href}`}

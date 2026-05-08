@@ -38,16 +38,19 @@ export async function handleConversation(ctx: Context) {
   const isGreeting  = GREETING_PATTERNS.test(text);
   const isQuestion  = QUESTION_PATTERNS.test(text) || text.endsWith("?");
 
-  // Rate limiting — respond to 1 in every 6 general messages per group
+  const replyMode      = (settings.ai as any)?.replyMode ?? "all";
+  const replyFrequency = (settings.ai as any)?.replyFrequency ?? 6;
+
+  // Rate limiting for general messages
   const count = (msgCounters.get(chatId) ?? 0) + 1;
   msgCounters.set(chatId, count);
-  const respondToGeneral = count % 6 === 0;
+  const respondToGeneral = replyMode === "all" && count % replyFrequency === 0;
 
   const shouldProcess =
     isMentioned ||
     isReply ||
-    isGreeting ||
-    isQuestion ||
+    (replyMode === "all" && isGreeting) ||
+    (replyMode === "all" && isQuestion) ||
     (!isAdmin && respondToGeneral);
 
   if (!shouldProcess) return;
@@ -70,14 +73,18 @@ export async function handleConversation(ctx: Context) {
         { upsert: true, new: true }
       );
 
-      if (profile.warnings >= 3 && settings.moderation?.muteOnSpam) {
+      const warnCount = Math.min(profile.warnings, 3);
+
+      if (warnCount >= 3 && settings.moderation?.muteOnSpam) {
         await applyMute(ctx, chatId, userId, settings.moderation.muteDurationSecs ?? 300);
-        await ctx.reply(`${username} has been muted for repeated violations.`)
+        // Reset warnings after mute so counter starts fresh
+        await UserProfile.findOneAndUpdate({ chatId, userId }, { $set: { warnings: 0 } });
+        await ctx.reply(`@${username} has been muted for repeated violations.`)
           .then(m => setTimeout(() => ctx.api.deleteMessage(ctx.chat!.id, m.message_id).catch(() => null), 8000))
           .catch(() => null);
       } else {
         await ctx.reply(
-          `@${username}, please keep the conversation respectful. Warning ${profile.warnings}/3.`
+          `@${username}, please keep this chat respectful. Warning ${warnCount}/3.`
         )
           .then(m => setTimeout(() => ctx.api.deleteMessage(ctx.chat!.id, m.message_id).catch(() => null), 8000))
           .catch(() => null);
