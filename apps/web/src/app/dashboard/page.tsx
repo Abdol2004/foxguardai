@@ -1,21 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Settings, Zap, Trash2, ChevronRight } from "lucide-react";
-import { useOwner } from "@/hooks/useOwner";
+import { Plus, Settings, Zap, Trash2, Copy, Check } from "lucide-react";
+import { useOwner, getTelegramUser } from "@/hooks/useOwner";
 import { LoadingButton } from "@/components/LoadingButton";
 import { Spinner } from "@/components/Spinner";
 import toast from "react-hot-toast";
 
-function ConnectScreen({ onConnect }: { onConnect: (id: string) => Promise<void> }) {
+function ConnectScreen({ onConnect }: { onConnect: (id: string, username?: string, firstName?: string) => Promise<void> }) {
   const [telegramId, setTelegramId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [detectedUser, setDetectedUser] = useState<{ id: number; username?: string; first_name?: string } | null>(null);
+
+  useEffect(() => {
+    const user = getTelegramUser();
+    if (user?.id) {
+      setDetectedUser(user);
+      setTelegramId(String(user.id));
+    }
+  }, []);
+
+  function copyId() {
+    if (!detectedUser) return;
+    navigator.clipboard.writeText(String(detectedUser.id)).catch(() => null);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   async function submit() {
     if (!telegramId.trim()) return;
     setLoading(true);
-    await onConnect(telegramId.trim());
+    await onConnect(
+      telegramId.trim(),
+      detectedUser?.username ?? "",
+      detectedUser?.first_name ?? ""
+    );
     setLoading(false);
   }
 
@@ -24,26 +45,62 @@ function ConnectScreen({ onConnect }: { onConnect: (id: string) => Promise<void>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <p className="text-2xl font-bold text-white mb-2">Welcome to FoxGuard</p>
-          <p className="text-sm text-[#64748b]">Enter your Telegram user ID to get started</p>
+          <p className="text-sm text-[#64748b]">Connect your Telegram account to get started</p>
         </div>
-        <div className="bg-[#14141f] border border-white/5 rounded-xl p-5 space-y-4">
-          <div>
-            <label className="text-xs text-[#94a3b8] block mb-2">Your Telegram User ID</label>
-            <input
-              value={telegramId}
-              onChange={(e) => setTelegramId(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-              placeholder="123456789"
-              className="w-full bg-[#0d0d14] border border-white/5 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-[#f97316]/40"
-            />
-            <p className="text-[11px] text-[#475569] mt-1.5">
-              Find your ID by messaging @userinfobot on Telegram
-            </p>
+
+        {/* Auto-detected ID card */}
+        {detectedUser ? (
+          <div className="bg-[#14141f] border border-white/5 rounded-xl p-5 space-y-4">
+            <div className="bg-[#0d0d14] border border-[#f97316]/15 rounded-xl p-4">
+              <p className="text-[11px] text-[#64748b] uppercase tracking-wide mb-3">Your Telegram account</p>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-[#94a3b8]">Name</span>
+                <span className="text-sm text-white font-medium">
+                  {detectedUser.first_name}{detectedUser.username ? ` (@${detectedUser.username})` : ""}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#94a3b8]">Your Telegram ID</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-[#f97316] font-mono font-bold">{detectedUser.id}</span>
+                  <button onClick={copyId} className="text-[#64748b] hover:text-white transition-colors">
+                    {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <LoadingButton loading={loading} onClick={submit} className="w-full py-2.5">
+              Connect account
+            </LoadingButton>
           </div>
-          <LoadingButton loading={loading} onClick={submit} className="w-full py-2.5">
-            Connect account
-          </LoadingButton>
-        </div>
+        ) : (
+          /* Manual input — shown only outside Telegram */
+          <div className="bg-[#14141f] border border-white/5 rounded-xl p-5 space-y-4">
+            <div className="bg-[#0d0d14] border border-white/5 rounded-xl p-4">
+              <p className="text-xs font-medium text-white mb-1">Find your Telegram ID</p>
+              <p className="text-[11px] text-[#64748b] leading-relaxed mb-3">
+                Open Telegram and message <span className="text-[#f97316]">@userinfobot</span>.
+                It will reply with your user ID instantly.
+              </p>
+              <p className="text-[11px] text-[#475569]">
+                For the best experience, open this dashboard from the bot inside Telegram — your ID will be detected automatically.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-[#94a3b8] block mb-2">Paste your Telegram User ID</label>
+              <input
+                value={telegramId}
+                onChange={(e) => setTelegramId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+                placeholder="123456789"
+                className="w-full bg-[#0d0d14] border border-white/5 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-[#f97316]/40"
+              />
+            </div>
+            <LoadingButton loading={loading} onClick={submit} className="w-full py-2.5">
+              Connect account
+            </LoadingButton>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -139,7 +196,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!owner) return <ConnectScreen onConnect={(id) => connect(id)} />;
+  if (!owner) return <ConnectScreen onConnect={(id, username, firstName) => connect(id, username ?? "", firstName ?? "")} />;
 
   async function activate(chatId: string) {
     setActivating(chatId);
@@ -165,7 +222,11 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-base font-semibold text-white">My Groups</h1>
           <p className="text-xs text-[#64748b] mt-0.5">
-            {owner.firstName || owner.username || `ID ${owner.telegramId}`}
+            {owner.firstName || owner.username
+              ? `${owner.firstName}${owner.username ? ` @${owner.username}` : ""}`
+              : ""}
+            {" · "}
+            <span className="text-[#f97316] font-mono">ID: {owner.telegramId}</span>
           </p>
         </div>
         <button

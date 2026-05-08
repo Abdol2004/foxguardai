@@ -17,18 +17,33 @@ export interface Owner {
   groups: OwnerGroup[];
 }
 
+export interface TelegramUser {
+  id: number;
+  username?: string;
+  first_name?: string;
+}
+
+export function getTelegramUser(): TelegramUser | null {
+  if (typeof window === "undefined") return null;
+  return (window as any).Telegram?.WebApp?.initDataUnsafe?.user ?? null;
+}
+
 export function useOwner() {
   const [owner, setOwner] = useState<Owner | null>(null);
   const [loading, setLoading] = useState(true);
+  const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(null);
 
   useEffect(() => {
+    const tgUser = getTelegramUser();
+    setTelegramUser(tgUser);
+
     const stored = localStorage.getItem("foxguard_owner");
+
     if (stored) {
       const parsed = JSON.parse(stored) as Owner;
       setOwner(parsed);
-      // refresh from server
       fetch(`/api/owner?telegramId=${parsed.telegramId}`)
-        .then((r) => r.ok ? r.json() : null)
+        .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (data) {
             setOwner(data);
@@ -36,20 +51,20 @@ export function useOwner() {
           }
         })
         .finally(() => setLoading(false));
+      return;
+    }
+
+    // Auto-connect if inside Telegram Mini App
+    if (tgUser?.id) {
+      connect(String(tgUser.id), tgUser.username ?? "", tgUser.first_name ?? "").finally(() =>
+        setLoading(false)
+      );
     } else {
-      // Check Telegram Mini App context
-      const tg = (window as any).Telegram?.WebApp;
-      const user = tg?.initDataUnsafe?.user;
-      if (user?.id) {
-        connect(String(user.id), user.username ?? "", user.first_name ?? "");
-      } else {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, []);
 
   async function connect(telegramId: string, username = "", firstName = "") {
-    setLoading(true);
     const res = await fetch("/api/owner", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -58,7 +73,6 @@ export function useOwner() {
     const data = await res.json();
     setOwner(data);
     localStorage.setItem("foxguard_owner", JSON.stringify(data));
-    setLoading(false);
     return data as Owner;
   }
 
@@ -91,5 +105,5 @@ export function useOwner() {
     setOwner(null);
   }
 
-  return { owner, loading, connect, addGroup, removeGroup, logout };
+  return { owner, loading, telegramUser, connect, addGroup, removeGroup, logout };
 }
