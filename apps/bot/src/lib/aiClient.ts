@@ -37,12 +37,13 @@ export function askAI(projectId: string, question: string, language = "en") {
 
 export function sendToConversation(
   projectId: string,
+  projectName: string,
   message: string,
   senderName = ""
 ) {
   return post<ConversationResponse>(
     "/conversation",
-    { project_id: projectId, message, sender_name: senderName },
+    { project_id: projectId, project_name: projectName, message, sender_name: senderName },
     25_000
   );
 }

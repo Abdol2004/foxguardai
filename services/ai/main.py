@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -5,9 +6,20 @@ from pydantic import BaseModel
 from rag.ingest import ingest_file, ingest_url, ingest_text
 from rag.query import query_knowledge
 from rag.classify import classify_message, check_toxic, generate_response
+from rag.embeddings import get_embeddings
 from rag.vectorstore import get_vectorstore
 
-app = FastAPI(title="FoxGuard AI Service", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Pre-load embedding model on startup so first request doesn't time out
+    print("[Startup] Loading embedding model...")
+    get_embeddings()
+    print("[Startup] Ready.")
+    yield
+
+
+app = FastAPI(title="FoxGuard AI Service", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,9 +43,12 @@ async def ingest_file_endpoint(
     file: UploadFile = File(...),
     project_id: str = Form(...),
 ):
-    content = await file.read()
-    chunks = await ingest_file(project_id, file.filename or "upload", content)
-    return {"status": "ok", "chunks_ingested": chunks, "filename": file.filename}
+    try:
+        content = await file.read()
+        chunks = await ingest_file(project_id, file.filename or "upload", content)
+        return {"status": "ok", "chunks_ingested": chunks, "filename": file.filename}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class UrlIngestRequest(BaseModel):
@@ -57,8 +72,11 @@ class TextIngestRequest(BaseModel):
 
 @app.post("/ingest/text")
 async def ingest_text_endpoint(req: TextIngestRequest):
-    chunks = await ingest_text(req.project_id, req.text)
-    return {"status": "ok", "chunks_ingested": chunks}
+    try:
+        chunks = await ingest_text(req.project_id, req.text)
+        return {"status": "ok", "chunks_ingested": chunks}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ─── Query ────────────────────────────────────────────────────────────────────
@@ -75,10 +93,11 @@ async def query_endpoint(req: QueryRequest):
     return result
 
 
-# ─── Conversation (human-like) ────────────────────────────────────────────────
+# ─── Conversation (human-like, project-aware) ─────────────────────────────────
 
 class ConversationRequest(BaseModel):
     project_id: str
+    project_name: str = ""
     message: str
     sender_name: str = ""
 
@@ -89,41 +108,43 @@ async def conversation_endpoint(req: ConversationRequest):
     if not message:
         return {"reply": None, "action": "ignore"}
 
-    # Step 1: classify the message
+    project_name = req.project_name or req.project_id
+
+    # Classify message
     msg_type = await classify_message(message)
 
-    # Step 2: toxic → moderate immediately, no reply
+    # Toxic check
     if msg_type == "toxic":
         is_toxic = await check_toxic(message)
         if is_toxic:
-            return {
-                "reply": None,
-                "action": "warn",
-                "reason": "Toxic or harmful message detected",
-            }
+            return {"reply": None, "action": "warn", "reason": "Toxic content"}
 
-    # Step 3: fetch project knowledge for context (if available)
+    # Off-topic → short rejection
+    if msg_type == "offtopic":
+        return {
+            "reply": f"I only manage {project_name} here. For other projects please check their official channels.",
+            "action": "reply",
+            "message_type": "offtopic",
+        }
+
+    # Fetch project knowledge
     project_knowledge = ""
     try:
         vs = get_vectorstore(req.project_id)
-        docs = vs.similarity_search(message, k=3)
-        project_knowledge = "\n".join(d.page_content for d in docs)
+        docs = vs.similarity_search(message, k=4)
+        project_knowledge = "\n\n".join(d.page_content for d in docs)
     except Exception:
         pass
 
-    # Step 4: generate response
     reply = await generate_response(
         message=message,
         message_type=msg_type,
+        project_name=project_name,
         project_knowledge=project_knowledge,
-        context=f"Sender: {req.sender_name}" if req.sender_name else "",
+        sender=req.sender_name or "User",
     )
 
-    return {
-        "reply": reply.strip(),
-        "action": "reply",
-        "message_type": msg_type,
-    }
+    return {"reply": reply.strip(), "action": "reply", "message_type": msg_type}
 
 
 class ToxicCheckRequest(BaseModel):

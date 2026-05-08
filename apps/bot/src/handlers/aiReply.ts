@@ -25,6 +25,8 @@ export async function handleConversation(ctx: Context) {
   const settings = await GroupSettings.findOne({ chatId }).lean();
   if (!settings?.ai?.enabled) return;
 
+  const projectName = (settings as any).chatTitle || ctx.chat.title || chatId;
+
   // Skip admins to avoid annoying them
   const member = await ctx.getChatMember(ctx.from!.id).catch(() => null);
   const isAdmin = member ? ["creator", "administrator"].includes(member.status) : false;
@@ -53,7 +55,7 @@ export async function handleConversation(ctx: Context) {
   await ctx.api.sendChatAction(ctx.chat.id, "typing").catch(() => null);
 
   const cleanText = text.replace(`@${botInfo.username}`, "").trim();
-  const result = await sendToConversation(chatId, cleanText, username);
+  const result = await sendToConversation(chatId, projectName, cleanText, username);
 
   if (!result) return;
 
