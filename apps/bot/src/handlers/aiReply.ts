@@ -97,23 +97,32 @@ export async function handleConversation(ctx: Context) {
 
   if (!result.reply) return;
 
-  // For direct questions with low confidence → escalate to ticket
-  if (isQuestion && result.message_type === "question") {
+  // For questions: try knowledge base first, fallback to conversation result
+  if (isQuestion || isMentioned || isReply) {
     const rag = await askAI(chatId, cleanText);
-    if (rag) {
-      if (rag.escalate || rag.confidence < 0.4) {
-        await Ticket.create({ chatId, userId, username, question: cleanText, status: "open" });
-        await ctx.reply(
-          `Good question! I've flagged this for an admin to answer properly.`,
-          { reply_parameters: { message_id: ctx.message.message_id } }
-        ).catch(() => null);
-        return;
-      }
+
+    if (rag && !rag.escalate && rag.confidence >= 0.55) {
+      // High-confidence RAG answer → use it
       await ctx.reply(rag.answer, {
         reply_parameters: { message_id: ctx.message.message_id },
         parse_mode: "HTML",
       }).catch(() => null);
       await incrementAnalytics(chatId, "aiReplies");
+      return;
+    }
+
+    // Low confidence → use the conversation AI result (general knowledge)
+    // Only escalate if the conversation result explicitly says it can't answer
+    const cantAnswer = result.reply.toLowerCase().includes("don't have that info") ||
+                       result.reply.toLowerCase().includes("check our official docs") ||
+                       result.reply.toLowerCase().includes("ask an admin");
+
+    if (cantAnswer && rag?.escalate) {
+      await Ticket.create({ chatId, userId, username, question: cleanText, status: "open" });
+      await ctx.reply(
+        `I don't have that specific information yet. I've flagged it for an admin to answer.`,
+        { reply_parameters: { message_id: ctx.message.message_id } }
+      ).catch(() => null);
       return;
     }
   }

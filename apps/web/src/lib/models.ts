@@ -26,7 +26,10 @@ const groupSettingsSchema = new Schema(
       enabled: { type: Boolean, default: true },
       tone: { type: String, enum: ["formal", "casual", "degen", "corporate"], default: "casual" },
       language: { type: String, default: "en" },
+      replyMode: { type: String, default: "all" },
+      replyFrequency: { type: Number, default: 6 },
     },
+    faq: [{ _id: String, question: String, answer: String }],
     projectId: { type: Types.ObjectId, ref: "Project", default: null },
   },
   { timestamps: true }
