@@ -81,6 +81,27 @@ const analyticsSchema = new Schema(
   { timestamps: true }
 );
 
+const ownerSchema = new Schema(
+  {
+    telegramId: { type: String, required: true, unique: true },
+    username:   { type: String, default: "" },
+    firstName:  { type: String, default: "" },
+    groups: [
+      {
+        chatId:    { type: String, required: true },
+        title:     { type: String, default: "" },
+        type:      { type: String, default: "group" },
+        activated: { type: Boolean, default: false },
+        addedAt:   { type: Date, default: Date.now },
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+export const Owner =
+  models["Owner"] ?? model("Owner", ownerSchema);
+
 export const GroupSettings =
   models["GroupSettings"] ?? model("GroupSettings", groupSettingsSchema);
 export const Project = models["Project"] ?? model("Project", projectSchema);
