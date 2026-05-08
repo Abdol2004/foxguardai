@@ -8,7 +8,7 @@ import { LoadingButton } from "@/components/LoadingButton";
 import { Spinner } from "@/components/Spinner";
 import toast from "react-hot-toast";
 
-function ConnectScreen({ onConnect }: { onConnect: (id: string, username?: string, firstName?: string) => Promise<void> }) {
+function ConnectScreen({ onConnect }: { onConnect: (id: string, username?: string, firstName?: string) => Promise<any> }) {
   const [telegramId, setTelegramId] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);

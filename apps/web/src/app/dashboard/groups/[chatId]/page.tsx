@@ -5,15 +5,15 @@ async function getGroupStats(chatId: string) {
   const { Analytics, ModerationEvent, Ticket } = await import("@/lib/models");
   const today = new Date().toISOString().split("T")[0]!;
   const [snap, totalEvents, openTickets] = await Promise.all([
-    Analytics.findOne({ chatId, date: today }).lean(),
+    Analytics.findOne({ chatId, date: today }).lean() as Promise<Record<string, any> | null>,
     ModerationEvent.countDocuments({ chatId }),
     Ticket.countDocuments({ chatId, status: "open" }),
   ]);
   return {
-    messages:   snap?.totalMessages ?? 0,
-    spam:       (snap?.spamDeleted ?? 0) + (snap?.linksDeleted ?? 0) + (snap?.scamDeleted ?? 0),
-    aiReplies:  snap?.aiReplies ?? 0,
-    newMembers: snap?.newMembers ?? 0,
+    messages:   (snap?.totalMessages as number) ?? 0,
+    spam:       ((snap?.spamDeleted as number) ?? 0) + ((snap?.linksDeleted as number) ?? 0) + ((snap?.scamDeleted as number) ?? 0),
+    aiReplies:  (snap?.aiReplies as number) ?? 0,
+    newMembers: (snap?.newMembers as number) ?? 0,
     totalEvents,
     openTickets,
   };
