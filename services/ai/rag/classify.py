@@ -6,46 +6,47 @@ from rag.llm import get_llm
 
 CLASSIFY_PROMPT = PromptTemplate(
     input_variables=["message"],
-    template="""Classify this Telegram group message. Reply with ONLY one word.
+    template="""Classify this Telegram message. Reply with ONE word only.
 
 Message: "{message}"
 
 Categories:
-- greeting  → hi, hello, hey, gm, good morning, yo, sup, welcome back
-- question  → asking for info, help, how-to, what is, when, why
-- toxic     → hostile, threatening, offensive, FUD, scam, harassment, spam
-- offtopic  → asking about a different project, competitor, or unrelated topic
-- general   → normal chat, opinions, reactions, memes
+- greeting  → hi, hello, hey, gm, good morning, yo, sup, welcome
+- question  → asking for information, help, explanation, or how-to
+- toxic     → threats, hate speech, scams, harassment, severe FUD
+- general   → normal conversation, opinions, reactions
 
-One word only:""",
+One word:""",
 )
 
-# ─── Response generation ──────────────────────────────────────────────────────
+# ─── Main response prompt ─────────────────────────────────────────────────────
 
 RESPOND_PROMPT = PromptTemplate(
     input_variables=["project_name", "message", "message_type", "project_knowledge", "sender"],
     template="""You are the AI community manager for {project_name}.
 
-STRICT RULES:
-1. You ONLY discuss {project_name}. If someone asks about another project, competitor, or unrelated topic, say: "I only manage {project_name} here. For other projects please check their official channels."
-2. NEVER make up information. If you don't have it in your knowledge base, say: "I don't have that info yet — check our official docs or ask an admin."
-3. Keep replies SHORT — 1 to 3 sentences max. Sound human, not robotic.
-4. Be warm, helpful, and professional.
+YOUR RULES:
+1. If asked specifically about a DIFFERENT NAMED project (e.g. "tell me about Binance" when you manage a different project) — say: "I manage {project_name} here, not [that project]. Check their official channels."
+2. General crypto/blockchain questions (what is a meme coin, how does Solana work, what is a rug pull, gas fees, etc.) — answer them helpfully and briefly.
+3. Questions about the chain {project_name} runs on (Solana, BNB, Ethereum, etc.) — answer them since they're relevant to users.
+4. NEVER make up contract addresses, wallet addresses, token amounts, APY%, or dates you don't have.
+5. If you don't know something specific about {project_name} — say: "I don't have that info yet — check our official docs or ask an admin."
+6. Keep replies SHORT (1–3 sentences). Sound human and natural, not robotic.
 
-Crypto knowledge (apply when relevant):
-- Centralized exchanges (CEX) like Binance, Bybit, Coinbase, OKX do NOT have contract addresses — they are platforms, not tokens
-- DeFi protocols, meme coins, and ERC-20/BEP-20 tokens DO have contract addresses
-- Never invent contract addresses, wallet addresses, or token amounts
-- Never invent APY%, token supply numbers, or roadmap dates you don't know
-- If {project_name} is a CEX and someone asks for a "contract address" — explain that CEXes don't have contract addresses and point them to the official site
-- For staking, trading, or platform fees — only state what is in the knowledge base
+Crypto facts (use when relevant):
+- CEXes (Binance, Bybit, Coinbase, OKX, Kraken) are platforms — they do NOT have contract addresses
+- Tokens/coins on EVM chains (ETH, BNB, Polygon) have contract addresses starting with 0x
+- Solana tokens have contract addresses (program IDs) that look like random base58 strings
+- "Contract address" and "token address" are the same thing for ERC-20/BEP-20 tokens
+- A meme coin IS a crypto token — it CAN have a contract address on its chain
+- Rug pull = dev abandons project and takes funds. Always remind users to verify contracts on official channels.
+- DYOR = Do Your Own Research. Always encourage it.
 
 {project_name} knowledge base:
 {project_knowledge}
 
 ---
 {sender} says: "{message}"
-Message type: {message_type}
 
 Reply as {project_name} community manager:""",
 )
@@ -54,39 +55,23 @@ Reply as {project_name} community manager:""",
 
 TOXIC_PROMPT = PromptTemplate(
     input_variables=["message"],
-    template="""Is this Telegram message harmful to a community? Consider: threats, hate speech, scam attempts, severe harassment, explicit FUD intended to harm.
+    template="""Is this Telegram message genuinely harmful? (threats, hate speech, scam links, severe harassment)
 
-Normal criticism or questions are NOT toxic.
-
-Message: "{message}"
-
-Answer YES or NO only:""",
-)
-
-# ─── Off-topic detection ──────────────────────────────────────────────────────
-
-OFFTOPIC_PROMPT = PromptTemplate(
-    input_variables=["message", "project_name", "project_knowledge"],
-    template="""Is this message asking about something unrelated to {project_name}?
-
-{project_name} knowledge summary: {project_knowledge}
+Normal criticism, price questions, FUD, or complaints are NOT toxic.
 
 Message: "{message}"
 
-If the message is about a competing project, a different platform, or has no connection to {project_name}, answer YES.
-If it could be relevant to {project_name}, answer NO.
-
-Answer YES or NO only:""",
+YES or NO only:""",
 )
 
 
 async def classify_message(message: str) -> str:
     chain = CLASSIFY_PROMPT | get_llm() | StrOutputParser()
     result = await chain.ainvoke({"message": message})
-    result = result.strip().lower().split()[0] if result.strip() else "general"
-    if result not in ("greeting", "question", "toxic", "offtopic", "general"):
+    word = result.strip().lower().split()[0] if result.strip() else "general"
+    if word not in ("greeting", "question", "toxic", "general"):
         return "general"
-    return result
+    return word
 
 
 async def check_toxic(message: str) -> bool:
@@ -104,9 +89,9 @@ async def generate_response(
 ) -> str:
     chain = RESPOND_PROMPT | get_llm() | StrOutputParser()
     return await chain.ainvoke({
-        "message":          message,
-        "message_type":     message_type,
-        "project_name":     project_name,
-        "project_knowledge": project_knowledge or "No knowledge base loaded yet.",
-        "sender":           sender,
+        "message":           message,
+        "message_type":      message_type,
+        "project_name":      project_name,
+        "project_knowledge": project_knowledge or "No knowledge base loaded yet. Tell users to check official docs.",
+        "sender":            sender,
     })

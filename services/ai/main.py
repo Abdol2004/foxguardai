@@ -119,14 +119,6 @@ async def conversation_endpoint(req: ConversationRequest):
         if is_toxic:
             return {"reply": None, "action": "warn", "reason": "Toxic content"}
 
-    # Off-topic → short rejection
-    if msg_type == "offtopic":
-        return {
-            "reply": f"I only manage {project_name} here. For other projects please check their official channels.",
-            "action": "reply",
-            "message_type": "offtopic",
-        }
-
     # Fetch project knowledge
     project_knowledge = ""
     try:
