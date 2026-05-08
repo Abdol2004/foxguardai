@@ -12,16 +12,17 @@ export async function handleNewMember(ctx: Context) {
   for (const member of ctx.message.new_chat_members) {
     if (member.is_bot) continue;
 
-    const userName =
-      member.username
-        ? `@${member.username}`
-        : member.first_name;
+    const userName  = member.username ? `@${member.username}` : member.first_name;
+    const firstName = member.first_name ?? member.username ?? "";
+    const userId    = String(member.id);
     const groupName = ctx.chat.title ?? "the group";
 
     const text = formatWelcome(
       settings.welcome.message,
       groupName,
-      userName
+      userName,
+      firstName,
+      userId
     );
 
     const sent = await ctx.reply(text, { parse_mode: "HTML" }).catch(() => null);

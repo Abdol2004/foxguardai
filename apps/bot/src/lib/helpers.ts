@@ -57,8 +57,16 @@ export async function incrementAnalytics(chatId: string, field: AnalyticsField, 
   );
 }
 
-export function formatWelcome(template: string, groupName: string, userName: string): string {
+export function formatWelcome(
+  template: string,
+  groupName: string,
+  userName: string,
+  firstName: string,
+  userId: string
+): string {
   return template
-    .replace("{group_name}", groupName)
-    .replace("{user_name}", userName);
+    .replace(/\{group_name\}/g, groupName)
+    .replace(/\{user_name\}/g,  userName)
+    .replace(/\{first_name\}/g, firstName)
+    .replace(/\{user_id\}/g,    userId);
 }
