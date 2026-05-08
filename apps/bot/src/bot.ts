@@ -4,7 +4,7 @@ import { antiLinkMiddleware } from "./middlewares/antiLink.js";
 import { antiScamMiddleware } from "./middlewares/antiScam.js";
 import { floodProtectionMiddleware } from "./middlewares/floodProtection.js";
 import { handleNewMember } from "./handlers/welcome.js";
-import { handleAiReply } from "./handlers/aiReply.js";
+import { handleConversation } from "./handlers/aiReply.js";
 import {
   cmdStart,
   cmdMyId,
@@ -46,8 +46,8 @@ export function createBot() {
   bot.command("stats", cmdStats);
   bot.command("tickets", cmdTickets);
 
-  // ─── AI replies ───────────────────────────────────────────────────────────
-  bot.on("message:text", handleAiReply);
+  // ─── Human-like AI conversation ──────────────────────────────────────────
+  bot.on("message:text", handleConversation);
 
   // ─── Error handling ───────────────────────────────────────────────────────
   bot.catch((err) => {
