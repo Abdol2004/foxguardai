@@ -119,14 +119,16 @@ async def conversation_endpoint(req: ConversationRequest):
         if is_toxic:
             return {"reply": None, "action": "warn", "reason": "Toxic content"}
 
-    # Only fetch project knowledge for questions — skip for greetings/general chat
-    # (including project knowledge in general chat makes the bot pivot to project promo)
+    # Only fetch project knowledge for questions, and ONLY if results are actually relevant.
+    # Pinecone always returns k results even for unrelated queries — we filter by score.
+    # Threshold 0.55: below this the query has nothing to do with the knowledge base.
     project_knowledge = ""
     if msg_type == "question":
         try:
             vs = get_vectorstore(req.project_id)
-            docs = vs.similarity_search(message, k=4)
-            project_knowledge = "\n\n".join(d.page_content for d in docs)
+            results = vs.similarity_search_with_relevance_scores(message, k=4)
+            relevant = [doc.page_content for doc, score in results if score >= 0.55]
+            project_knowledge = "\n\n".join(relevant)
         except Exception:
             pass
 

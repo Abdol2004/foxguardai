@@ -13,39 +13,59 @@ Message: "{message}"
 Categories:
 - greeting  → hi, hello, hey, gm, good morning, yo, sup, welcome
 - question  → asking for information, help, explanation, or how-to
-- toxic     → threats, hate speech, scams, harassment, severe FUD
-- general   → normal conversation, opinions, reactions
+- toxic     → threats, hate speech, scams, harassment
+- general   → normal chat, opinions, reactions, memes
 
 One word:""",
 )
 
-# ─── Main response prompt ─────────────────────────────────────────────────────
+# ─── Social prompt (no project context — for general/off-project questions) ───
 
-RESPOND_PROMPT = PromptTemplate(
-    input_variables=["project_name", "message", "message_type", "project_knowledge", "sender"],
-    template="""You are a fun, warm, human community manager in a Telegram group. You also happen to manage {project_name}.
+SOCIAL_PROMPT = PromptTemplate(
+    input_variables=["message", "sender"],
+    template="""You are a fun, friendly community manager in a Telegram group.
+The user is asking about a general topic — NOT about the project.
+Just answer like a normal, social human friend. Be warm, engaging, and brief (1-3 sentences).
+You can have opinions. You can recommend things. Be real.
 
-ABSOLUTE RULE #1 — READ THIS FIRST:
-If the message is about movies, anime, TV shows, sports, music, food, memes, games, life, weekends, or ANY non-crypto general topic — just answer it like a normal human friend would. Recommend the movie. Talk about the anime. Share your opinion. Do NOT redirect to {project_name}. Do NOT say "I'm here to help with {project_name}". Just be human and social.
+{sender} says: "{message}"
 
-ABSOLUTE RULE #2:
-Only redirect to {project_name} when someone asks specifically about a DIFFERENT named crypto project (e.g. "tell me about Uniswap" or "what is Binance's fee"). In that case say you manage {project_name} here.
+Reply:""",
+)
 
-RULE #3 — Project questions:
-Use the knowledge base below to answer {project_name}-specific questions.
-NEVER invent contract addresses, token supply, APY, or dates you don't know.
-If not in knowledge base: "I don't have that info yet — check our official docs."
+# ─── Project prompt (used when knowledge base has relevant content) ───────────
 
-RULE #4 — General crypto:
-Answer general crypto education questions freely (rug pulls, staking, DeFi, wallets, gas fees).
+PROJECT_PROMPT = PromptTemplate(
+    input_variables=["project_name", "message", "project_knowledge", "sender"],
+    template="""You are the community manager for {project_name}.
 
-Keep replies SHORT (1–3 sentences max). Sound human, casual, real.
+Answer the question using the knowledge base below.
+If the answer is not in the knowledge base, say: "I don't have that info yet — check our official docs or ask an admin."
+NEVER invent contract addresses, token supply, APY, or dates.
+Keep it SHORT (1-3 sentences). Sound human, not robotic.
 
 {project_name} knowledge base:
 {project_knowledge}
 
----
-{sender} says: "{message}"
+{sender} asks: "{message}"
+
+Reply:""",
+)
+
+# ─── Crypto education prompt (general crypto — no project context needed) ─────
+
+CRYPTO_PROMPT = PromptTemplate(
+    input_variables=["message", "project_name", "sender"],
+    template="""You are a knowledgeable, friendly crypto community manager.
+Answer this general crypto question clearly and briefly (1-3 sentences).
+
+Facts to apply when relevant:
+- CEXes (Binance, Bybit, Coinbase, OKX) do NOT have contract addresses — they are platforms
+- EVM tokens have 0x contract addresses, Solana tokens have base58 addresses
+- Crypto = native coins on their own blockchain (BTC, ETH). Tokens = built on existing blockchains (ERC-20, BEP-20)
+- Rug pull = devs abandon project and take funds. DYOR always.
+
+{sender} asks: "{message}"
 
 Reply:""",
 )
@@ -55,11 +75,17 @@ Reply:""",
 TOXIC_PROMPT = PromptTemplate(
     input_variables=["message"],
     template="""Is this Telegram message genuinely harmful? (threats, hate speech, scam links, severe harassment)
-
-Normal criticism, price questions, FUD, or complaints are NOT toxic.
-
+Normal criticism, price questions, or complaints are NOT toxic.
 Message: "{message}"
+YES or NO only:""",
+)
 
+# ─── Is this crypto-related? ─────────────────────────────────────────────────
+
+CRYPTO_CHECK_PROMPT = PromptTemplate(
+    input_variables=["message"],
+    template="""Is this message asking about crypto, blockchain, DeFi, tokens, NFTs, Web3, or anything finance/tech related?
+Message: "{message}"
 YES or NO only:""",
 )
 
@@ -79,6 +105,12 @@ async def check_toxic(message: str) -> bool:
     return result.strip().upper().startswith("YES")
 
 
+async def is_crypto_question(message: str) -> bool:
+    chain = CRYPTO_CHECK_PROMPT | get_llm() | StrOutputParser()
+    result = await chain.ainvoke({"message": message})
+    return result.strip().upper().startswith("YES")
+
+
 async def generate_response(
     message: str,
     message_type: str,
@@ -86,11 +118,29 @@ async def generate_response(
     project_knowledge: str = "",
     sender: str = "User",
 ) -> str:
-    chain = RESPOND_PROMPT | get_llm() | StrOutputParser()
-    return await chain.ainvoke({
-        "message":           message,
-        "message_type":      message_type,
-        "project_name":      project_name,
-        "project_knowledge": project_knowledge or "No knowledge base loaded yet. Tell users to check official docs.",
-        "sender":            sender,
-    })
+    llm = get_llm()
+
+    # Has relevant project knowledge → use project prompt
+    if project_knowledge:
+        chain = PROJECT_PROMPT | llm | StrOutputParser()
+        return await chain.ainvoke({
+            "project_name":      project_name,
+            "message":           message,
+            "project_knowledge": project_knowledge,
+            "sender":            sender,
+        })
+
+    # No project knowledge — check if it's a crypto question
+    if message_type == "question":
+        crypto = await is_crypto_question(message)
+        if crypto:
+            chain = CRYPTO_PROMPT | llm | StrOutputParser()
+            return await chain.ainvoke({
+                "message":      message,
+                "project_name": project_name,
+                "sender":       sender,
+            })
+
+    # General social topic — just be human
+    chain = SOCIAL_PROMPT | llm | StrOutputParser()
+    return await chain.ainvoke({"message": message, "sender": sender})
