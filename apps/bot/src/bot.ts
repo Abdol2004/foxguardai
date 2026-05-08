@@ -5,6 +5,7 @@ import { antiScamMiddleware } from "./middlewares/antiScam.js";
 import { floodProtectionMiddleware } from "./middlewares/floodProtection.js";
 import { handleNewMember } from "./handlers/welcome.js";
 import { handleConversation } from "./handlers/aiReply.js";
+import { cmdAdmin } from "./handlers/admin.js";
 import {
   cmdStart,
   cmdMyId,
@@ -38,6 +39,7 @@ export function createBot() {
 
   // ─── Commands ─────────────────────────────────────────────────────────────
   bot.command("start", cmdStart);
+  bot.command("admin", cmdAdmin);
   bot.command("myid", cmdMyId);
   bot.command("setup", cmdSetup);
   bot.command("warn", cmdWarn);

@@ -15,6 +15,8 @@ export async function cmdStart(ctx: Context) {
     "<b>FoxGuard — Sentinel Fox</b>\n\n" +
       "I am your AI community moderator. Add me to a group as an admin and I will keep it safe.\n\n" +
       (userId ? `Your Telegram ID: <code>${userId}</code>\n\n` : "") +
+      "Join our official channel for updates and announcements:\n" +
+      "👉 https://t.me/foxguardaigroup\n\n" +
       "Commands:\n" +
       "/myid — get your Telegram user ID\n" +
       "/setup — activate in a group\n" +
@@ -23,7 +25,14 @@ export async function cmdStart(ctx: Context) {
       "/ban — ban a user (reply)\n" +
       "/stats — group stats\n" +
       "/tickets — open support tickets",
-    { parse_mode: "HTML" }
+    {
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "Join Official Channel", url: "https://t.me/foxguardaigroup" },
+        ]],
+      },
+    }
   );
 }
 

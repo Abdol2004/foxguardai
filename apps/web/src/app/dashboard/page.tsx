@@ -198,12 +198,12 @@ export default function DashboardPage() {
 
   if (!owner) return <ConnectScreen onConnect={(id, username, firstName) => connect(id, username ?? "", firstName ?? "")} />;
 
-  async function activate(chatId: string) {
+  async function activate(chatId: string, groupTitle: string) {
     setActivating(chatId);
     const res = await fetch(`/api/groups/${chatId}/activate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ telegramId: owner!.telegramId }),
+      body: JSON.stringify({ telegramId: owner!.telegramId, groupTitle }),
     });
     const data = await res.json();
     setActivating(null);
@@ -276,7 +276,7 @@ export default function DashboardPage() {
                 {!g.activated && (
                   <LoadingButton
                     loading={activating === g.chatId}
-                    onClick={() => activate(g.chatId)}
+                    onClick={() => activate(g.chatId, g.title)}
                     className="flex-1 py-2 text-xs"
                   >
                     <Zap size={13} />

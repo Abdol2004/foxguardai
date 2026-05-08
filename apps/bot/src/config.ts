@@ -17,5 +17,9 @@ export const config = {
   ai: {
     serviceUrl: process.env["AI_SERVICE_URL"] ?? "http://localhost:8000",
   },
+  // Bot owner Telegram user ID — only this ID can use /admin
+  ownerId: process.env["BOT_OWNER_ID"] ?? "",
+  // Official channel username or chat ID for alerts (e.g. @foxguardaigroup)
+  officialChannel: process.env["OFFICIAL_CHANNEL"] ?? "@foxguardaigroup",
   env: (process.env["NODE_ENV"] ?? "development") as "development" | "production",
 };
