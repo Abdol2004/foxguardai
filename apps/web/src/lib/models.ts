@@ -112,3 +112,20 @@ export const ModerationEvent =
   models["ModerationEvent"] ?? model("ModerationEvent", moderationEventSchema);
 export const Ticket = models["Ticket"] ?? model("Ticket", ticketSchema);
 export const Analytics = models["Analytics"] ?? model("Analytics", analyticsSchema);
+
+const userProfileSchema = new Schema(
+  {
+    chatId:   { type: String, required: true },
+    userId:   { type: String, required: true },
+    username: { type: String, default: "" },
+    warnings: { type: Number, default: 0 },
+    muted:    { type: Boolean, default: false },
+    muteUntil:{ type: Date, default: null },
+    banned:   { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+userProfileSchema.index({ chatId: 1, userId: 1 }, { unique: true });
+
+export const UserProfile =
+  models["UserProfile"] ?? model("UserProfile", userProfileSchema);
