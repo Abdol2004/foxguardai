@@ -119,14 +119,16 @@ async def conversation_endpoint(req: ConversationRequest):
         if is_toxic:
             return {"reply": None, "action": "warn", "reason": "Toxic content"}
 
-    # Fetch project knowledge
+    # Only fetch project knowledge for questions — skip for greetings/general chat
+    # (including project knowledge in general chat makes the bot pivot to project promo)
     project_knowledge = ""
-    try:
-        vs = get_vectorstore(req.project_id)
-        docs = vs.similarity_search(message, k=4)
-        project_knowledge = "\n\n".join(d.page_content for d in docs)
-    except Exception:
-        pass
+    if msg_type == "question":
+        try:
+            vs = get_vectorstore(req.project_id)
+            docs = vs.similarity_search(message, k=4)
+            project_knowledge = "\n\n".join(d.page_content for d in docs)
+        except Exception:
+            pass
 
     reply = await generate_response(
         message=message,
