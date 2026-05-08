@@ -1,0 +1,71 @@
+services:
+  # ── Next.js Dashboard ────────────────────────────────────────────────────────
+  - type: web
+    name: foxguard-web
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install -g pnpm@9 && pnpm install && pnpm --filter @foxguard/web build
+    startCommand: pnpm --filter @foxguard/web start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: foxguard
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: AI_SERVICE_URL
+        fromService:
+          name: foxguard-ai
+          type: web
+          property: host
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        value: foxguard-knowledge
+
+  # ── Telegram Bot ─────────────────────────────────────────────────────────────
+  - type: worker
+    name: foxguard-bot
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install -g pnpm@9 && pnpm install && pnpm --filter @foxguard/bot build
+    startCommand: node apps/bot/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: foxguard
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: AI_SERVICE_URL
+        fromService:
+          name: foxguard-ai
+          type: web
+          property: host
+
+  # ── Python AI / RAG Service ──────────────────────────────────────────────────
+  - type: web
+    name: foxguard-ai
+    env: python
+    region: frankfurt
+    plan: free
+    rootDir: services/ai
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        value: foxguard-knowledge
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: foxguard

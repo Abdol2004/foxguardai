@@ -1,0 +1,46 @@
+# env
+.env
+.env.local
+.env.*.local
+
+# deps
+node_modules/
+.pnp
+.pnp.js
+
+# build
+dist/
+.next/
+out/
+build/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# turbo
+.turbo/
+
+# python venv
+services/ai/.venv/
+services/ai/venv/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# uploads
+uploads/
+*.pdf
+*.docx
