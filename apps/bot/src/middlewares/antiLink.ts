@@ -2,7 +2,28 @@ import type { Context, NextFunction } from "grammy";
 import { GroupSettings, ModerationEvent, UserProfile } from "../db/models.js";
 import { incrementAnalytics, applyMute } from "../lib/helpers.js";
 
-const URL_REGEX = /(?:https?:\/\/|t\.me\/|@\w+\.(?:com|io|net|org|xyz|gg))/i;
+// Catches: https://x.com, www.x.com, t.me/x, discord.gg/x, bare x.com, x.io, x.net, etc.
+const URL_REGEX = new RegExp(
+  "(?:" +
+    "https?:\\/\\/\\S+" +                    // https://... or http://...
+    "|www\\.\\S+" +                           // www.anything
+    "|t\\.me\\/\\S+" +                        // t.me/channel
+    "|discord\\.gg\\/\\S+" +                  // discord.gg/invite
+    "|\\b[\\w-]+\\.(?:" +                     // bare domains: word.TLD
+      "com|io|net|org|xyz|gg|co|app|dev|ai|" +
+      "me|tv|info|biz|live|site|online|vip|" +
+      "pro|club|store|shop|tech|finance|" +
+      "crypto|nft|defi|dao|chain|market|" +
+      "trade|exchange|token|coin|click|link|" +
+      "money|airdrop|giveaway|earn|win|" +
+      "to|cc|gg|so|sh|ly|gl|bit|" +
+      "uk|us|eu|de|fr|ru|ca|au|id|ph|ng|" +
+      "ke|za|gh|in|br|jp|cn|kr|tr|" +
+      "gov|edu|mil|int" +
+    ")(?:\\/\\S*)?" +                         // optional /path
+  ")",
+  "i"
+);
 
 export async function antiLinkMiddleware(ctx: Context, next: NextFunction) {
   if (!ctx.message || !ctx.chat || ctx.chat.type === "private") return next();
