@@ -51,3 +51,11 @@ export function sendToConversation(
 export function checkToxic(message: string) {
   return post<{ is_toxic: boolean }>("/toxic-check", { message }, 10_000);
 }
+
+export function sendSocial(message: string, senderName = "") {
+  return post<{ reply: string; action: string }>(
+    "/social",
+    { message, sender_name: senderName },
+    15_000
+  );
+}

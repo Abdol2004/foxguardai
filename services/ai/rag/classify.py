@@ -19,6 +19,24 @@ Categories:
 One word:""",
 )
 
+# ─── Pure social prompt — completely isolated from project context ────────────
+
+PURE_SOCIAL_PROMPT = PromptTemplate(
+    input_variables=["message", "sender"],
+    template="""You are a fun, warm friend chatting in a group chat. Just have a natural conversation.
+
+Rules:
+- Reply like a real human friend, not an assistant
+- Keep it short (1-2 sentences)
+- Plain text only, no asterisks, no bullet points, no formatting
+- You can have opinions, make jokes, give recommendations
+- Do NOT mention any project, website, or redirect anywhere
+
+{sender} says: "{message}"
+
+Reply:""",
+)
+
 # ─── Social prompt — general life topics ─────────────────────────────────────
 
 SOCIAL_PROMPT = PromptTemplate(
@@ -124,6 +142,11 @@ async def is_crypto_question(message: str) -> bool:
     chain = CRYPTO_CHECK_PROMPT | get_llm() | StrOutputParser()
     result = await chain.ainvoke({"message": message})
     return result.strip().upper().startswith("YES")
+
+
+async def pure_social_response(message: str, sender: str = "User") -> str:
+    chain = PURE_SOCIAL_PROMPT | get_llm() | StrOutputParser()
+    return await chain.ainvoke({"message": message, "sender": sender})
 
 
 async def generate_response(

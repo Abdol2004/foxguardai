@@ -1,16 +1,16 @@
 import type { Context } from "grammy";
 import { GroupSettings, Ticket, UserProfile } from "../db/models.js";
-import { sendToConversation, askAI } from "../lib/aiClient.js";
+import { sendToConversation, sendSocial, askAI } from "../lib/aiClient.js";
 import { incrementAnalytics, applyMute } from "../lib/helpers.js";
 
 // Per-group message counter for rate limiting (in-memory, resets on restart)
 const msgCounters = new Map<string, number>();
 
-// Greetings that should always get a reply
-const GREETING_PATTERNS = /\b(hi|hello|hey|heyy|heyyyy|yo|sup|gm|good morning|good evening|gn|good night|howdy|what'?s up|wassup|salaam|salam|greetings|morning|evening)\b/i;
-
-// Direct question patterns
+const GREETING_PATTERNS = /\b(hi|hello|hey|heyy|yo|sup|gm|good morning|good evening|gn|good night|howdy|what'?s up|wassup|salaam|salam|greetings|morning|evening)\b/i;
 const QUESTION_PATTERNS = /\?|what is|what are|how do|how can|how to|when (is|will|does)|where (is|can)|who (is|are)|why (is|does)|tell me|explain|help me|i need|can you/i;
+
+// Topics that are clearly NOT about the project — route directly to social AI
+const PURE_SOCIAL_PATTERNS = /\b(movie|movies|film|films|anime|series|netflix|hulu|prime|watch|cinema|tv show|episode|season|weekend|holiday|vacation|food|eat|restaurant|recipe|cook|weather|sport|football|soccer|basketball|baseball|game|gaming|console|music|song|artist|album|playlist|book|reading|novel|travel|trip|tour|fashion|style|clothes|celebrity|relationship|dating|love|marriage|joke|funny|meme|laugh|lol|entertainment|recommend|suggestion|suggest)\b/i;
 
 export async function handleConversation(ctx: Context) {
   if (!ctx.message?.text || !ctx.chat || ctx.chat.type === "private") return;
@@ -58,6 +58,34 @@ export async function handleConversation(ctx: Context) {
   await ctx.api.sendChatAction(ctx.chat.id, "typing").catch(() => null);
 
   const cleanText = text.replace(`@${botInfo.username}`, "").trim();
+
+  // Short-circuit: if clearly a general life topic, skip project pipeline entirely
+  const isClearlyGeneral = PURE_SOCIAL_PATTERNS.test(cleanText) &&
+    !cleanText.toLowerCase().includes(projectName.toLowerCase());
+
+  if (isClearlyGeneral && !isMentioned && !isReply) {
+    const social = await sendSocial(cleanText, username);
+    if (social?.reply) {
+      await ctx.reply(social.reply, {
+        reply_parameters: { message_id: ctx.message!.message_id },
+      }).catch(() => null);
+      await incrementAnalytics(chatId, "aiReplies");
+    }
+    return;
+  }
+
+  // When @mentioned with a general topic, still answer naturally (no project redirect)
+  if (isClearlyGeneral && (isMentioned || isReply)) {
+    const social = await sendSocial(cleanText, username);
+    if (social?.reply) {
+      await ctx.reply(social.reply, {
+        reply_parameters: { message_id: ctx.message!.message_id },
+      }).catch(() => null);
+      await incrementAnalytics(chatId, "aiReplies");
+    }
+    return;
+  }
+
   const result = await sendToConversation(chatId, projectName, cleanText, username);
 
   if (!result) return;

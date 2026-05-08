@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from rag.ingest import ingest_file, ingest_url, ingest_text
 from rag.query import query_knowledge
-from rag.classify import classify_message, check_toxic, generate_response
+from rag.classify import classify_message, check_toxic, generate_response, pure_social_response
 from rag.embeddings import get_embeddings
 from rag.vectorstore import get_vectorstore
 
@@ -151,3 +151,16 @@ class ToxicCheckRequest(BaseModel):
 async def toxic_check_endpoint(req: ToxicCheckRequest):
     is_toxic = await check_toxic(req.message)
     return {"is_toxic": is_toxic}
+
+
+# ─── Pure social chat (NO project context at all) ─────────────────────────────
+
+class SocialRequest(BaseModel):
+    message: str
+    sender_name: str = ""
+
+
+@app.post("/social")
+async def social_endpoint(req: SocialRequest):
+    reply = await pure_social_response(req.message, req.sender_name)
+    return {"reply": reply.strip(), "action": "reply"}
