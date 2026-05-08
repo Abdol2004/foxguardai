@@ -1,9 +1,4 @@
-import { config as dotenvConfig } from "dotenv";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenvConfig({ path: resolve(__dirname, "../../../.env") });
+import "dotenv/config";
 
 function require_env(key: string): string {
   const val = process.env[key];
@@ -14,7 +9,6 @@ function require_env(key: string): string {
 export const config = {
   telegram: {
     token: require_env("TELEGRAM_BOT_TOKEN"),
-    webhookSecret: process.env["TELEGRAM_WEBHOOK_SECRET"] ?? "",
   },
   mongodb: {
     uri: require_env("MONGODB_URI"),

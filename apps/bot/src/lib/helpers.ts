@@ -12,10 +12,12 @@ export async function getUserProfile(chatId: string, userId: string, username: s
 export async function applyMute(ctx: Context, chatId: string, userId: string, durationSecs: number) {
   const until = new Date(Date.now() + durationSecs * 1000);
   await ctx.api
-    .restrictChatMember(Number(chatId), Number(userId), {
-      permissions: { can_send_messages: false },
-      until_date: Math.floor(until.getTime() / 1000),
-    })
+    .restrictChatMember(
+      Number(chatId),
+      Number(userId),
+      { can_send_messages: false },
+      { until_date: Math.floor(until.getTime() / 1000) }
+    )
     .catch(() => null);
 
   await UserProfile.findOneAndUpdate(
