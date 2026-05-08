@@ -10,16 +10,32 @@ async function isAdmin(ctx: Context): Promise<boolean> {
 
 export async function cmdStart(ctx: Context) {
   if (ctx.chat?.type !== "private") return;
+  const userId = ctx.from?.id;
   await ctx.reply(
     "<b>FoxGuard — Sentinel Fox</b>\n\n" +
       "I am your AI community moderator. Add me to a group as an admin and I will keep it safe.\n\n" +
+      (userId ? `Your Telegram ID: <code>${userId}</code>\n\n` : "") +
       "Commands:\n" +
+      "/myid — get your Telegram user ID\n" +
       "/setup — activate in a group\n" +
       "/warn — warn a user (reply)\n" +
       "/mute — mute a user (reply)\n" +
       "/ban — ban a user (reply)\n" +
       "/stats — group stats\n" +
       "/tickets — open support tickets",
+    { parse_mode: "HTML" }
+  );
+}
+
+export async function cmdMyId(ctx: Context) {
+  const userId    = ctx.from?.id;
+  const username  = ctx.from?.username ? `@${ctx.from.username}` : "";
+  const firstName = ctx.from?.first_name ?? "";
+  await ctx.reply(
+    `<b>Your Telegram info</b>\n\n` +
+      `Name: ${firstName}${username ? ` (${username})` : ""}\n` +
+      `User ID: <code>${userId}</code>\n\n` +
+      `Copy your ID and paste it in the FoxGuard dashboard to connect your account.`,
     { parse_mode: "HTML" }
   );
 }

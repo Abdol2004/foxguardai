@@ -83,7 +83,7 @@ function ConnectScreen({ onConnect }: { onConnect: (id: string, username?: strin
                 It will reply with your user ID instantly.
               </p>
               <p className="text-[11px] text-[#475569]">
-                For the best experience, open this dashboard from the bot inside Telegram — your ID will be detected automatically.
+                Or message the bot and send <code className="text-[#f97316]">/myid</code> — it will reply with your ID instantly.
               </p>
             </div>
             <div>

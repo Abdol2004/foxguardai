@@ -5,9 +5,20 @@ import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { LoadingButton } from "@/components/LoadingButton";
 
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+function Toggle({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+  function handle() {
+    onToggle();
+    toast(on ? `${label} turned off` : `${label} turned on`, {
+      style: {
+        background: on ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.12)",
+        color: on ? "#fca5a5" : "#86efac",
+        border: `1px solid ${on ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)"}`,
+        fontSize: "13px",
+      },
+    });
+  }
   return (
-    <button onClick={onToggle} className={`w-10 h-5 rounded-full relative transition-colors ${on ? "bg-[#f97316]" : "bg-white/10"}`}>
+    <button onClick={handle} className={`w-10 h-5 rounded-full relative transition-colors ${on ? "bg-[#f97316]" : "bg-white/10"}`}>
       <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform shadow ${on ? "translate-x-5" : "translate-x-0.5"}`} />
     </button>
   );
@@ -84,7 +95,7 @@ export default function GroupModerationPage() {
         {TOGGLES.map(([key, label]) => (
           <div key={key} className="flex items-center justify-between px-4 py-3">
             <span className="text-sm text-[#cbd5e1]">{label}</span>
-            <Toggle on={!!s[key]} onToggle={() => setS((p) => ({ ...p, [key]: !p[key] }))} />
+            <Toggle label={label} on={!!s[key]} onToggle={() => setS((p) => ({ ...p, [key]: !p[key] }))} />
           </div>
         ))}
       </div>

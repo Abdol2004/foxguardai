@@ -6,8 +6,15 @@ export async function handleNewMember(ctx: Context) {
   if (!ctx.message?.new_chat_members || !ctx.chat) return;
 
   const chatId = String(ctx.chat.id);
-  const settings = await GroupSettings.findOne({ chatId }).lean();
-  if (!settings?.welcome?.enabled) return;
+
+  // Auto-create settings if the bot was added to the group without /setup
+  const settings = await GroupSettings.findOneAndUpdate(
+    { chatId },
+    { $setOnInsert: { chatTitle: ctx.chat.title ?? "" } },
+    { upsert: true, new: true }
+  );
+
+  if (!settings.welcome?.enabled) return;
 
   for (const member of ctx.message.new_chat_members) {
     if (member.is_bot) continue;

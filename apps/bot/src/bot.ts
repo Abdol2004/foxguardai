@@ -7,6 +7,7 @@ import { handleNewMember } from "./handlers/welcome.js";
 import { handleAiReply } from "./handlers/aiReply.js";
 import {
   cmdStart,
+  cmdMyId,
   cmdSetup,
   cmdWarn,
   cmdMute,
@@ -37,6 +38,7 @@ export function createBot() {
 
   // ─── Commands ─────────────────────────────────────────────────────────────
   bot.command("start", cmdStart);
+  bot.command("myid", cmdMyId);
   bot.command("setup", cmdSetup);
   bot.command("warn", cmdWarn);
   bot.command("mute", cmdMute);
